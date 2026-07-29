@@ -5,15 +5,51 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "viz-library-msdscomms"
 version = "0.1.0"
-description = "A visualization library"
+description = "Attractive, consistent seaborn plots with a median-keyed blue-green palette and a dark theme"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
+authors = [{ name = "Alex Goldstone", email = "argoldstone@dons.usfca.edu" }]
+keywords = [
+    "visualization",
+    "plotting",
+    "histogram",
+    "heatmap",
+    "scatterplot",
+    "seaborn",
+    "matplotlib",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
 dependencies = [
     "pandas",
     "matplotlib",
     "seaborn",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "twine",
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/agold21/viz_library_msdscomms"
+Repository = "https://github.com/agold21/viz_library_msdscomms"
+Issues = "https://github.com/agold21/viz_library_msdscomms/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
