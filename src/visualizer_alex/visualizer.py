@@ -1,4 +1,9 @@
-"""Core functionality for the visualizer library."""
+"""Core plotting functions for the visualizer library.
+
+Each function draws with seaborn and shares one visual language: a blue->green
+encoding keyed to the median (blue below, green above) on a professional dark
+theme. The shared color and styling logic lives in :mod:`visualizer_alex._style`.
+"""
 
 from __future__ import annotations
 
@@ -6,48 +11,36 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-# Endpoint colors of the blue -> green spectrum.
-# Bars far below the median trend toward BLUE; bars far above trend toward GREEN.
-_BLUE = (0.10, 0.25, 0.75)
-_GREEN = (0.15, 0.70, 0.35)
-
-# Preferred sans-serif families, in order, for a clean professional look.
-# These are registered ahead of matplotlib's defaults so the plot uses them
-# when installed and falls back silently to DejaVu Sans (always available)
-# otherwise. Text elements reference the generic "sans-serif" family, which
-# resolves through this list without emitting missing-font warnings.
-_PREFERRED_FONTS = ["Helvetica", "Arial", "Helvetica Neue", "DejaVu Sans"]
-
-
-def _blend(weight: float) -> tuple[float, float, float]:
-    """Linearly interpolate from blue (weight=0) to green (weight=1)."""
-    return tuple(b + weight * (g - b) for b, g in zip(_BLUE, _GREEN))
+from ._style import (
+    add_bluegreen_colorbar,
+    apply_dark_style,
+    blend,
+    bluegreen_cmap,
+    median_weights,
+    style_colorbar_white,
+    use_preferred_fonts,
+)
 
 
 def histogram(data, bins: int = 10, title: str = "Histogram", ax=None, **hist_kwargs):
-    """Plot a professionally styled histogram colored by position vs. the median.
+    """Plot a histogram colored by each bar's position relative to the median.
 
-    The histogram is drawn with :func:`seaborn.histplot`. Bars whose center
-    falls below the median are shaded toward blue, and bars above the median
-    toward green. The further a bar sits from the median, the more saturated
-    its color becomes in the respective direction.
-
-    The figure uses a black background with white text, a professional
-    sans-serif font, a bold title, and white bar outlines.
+    Drawn with :func:`seaborn.histplot`. Bars below the median are shaded toward
+    blue and bars above toward green, more saturated the further from the median.
+    Styled with a black background, white text, a bold title, and white outlines.
 
     Parameters
     ----------
     data : array-like or pandas.Series
         The values to histogram. Missing values (NaN) are dropped.
     bins : int, default 10
-        Number of histogram bins passed through to ``seaborn.histplot``.
+        Number of histogram bins passed to ``seaborn.histplot``.
     title : str, default "Histogram"
         Bold title rendered at the top of the plot.
     ax : matplotlib.axes.Axes, optional
         Axes to draw on. If omitted, a new figure and axes are created.
     **hist_kwargs
-        Additional keyword arguments forwarded to ``seaborn.histplot``. An
-        ``edgecolor`` supplied here overrides the default white bar outline.
+        Additional keyword arguments forwarded to ``seaborn.histplot``.
 
     Returns
     -------
@@ -59,55 +52,156 @@ def histogram(data, bins: int = 10, title: str = "Histogram", ax=None, **hist_kw
         raise ValueError("`data` contains no non-null values to plot.")
 
     median = series.median()
-
-    # Prefer professional sans-serif fonts, falling back silently to defaults.
-    existing = [f for f in plt.rcParams["font.sans-serif"] if f not in _PREFERRED_FONTS]
-    plt.rcParams["font.sans-serif"] = _PREFERRED_FONTS + existing
+    use_preferred_fonts()
 
     if ax is None:
         _, ax = plt.subplots()
 
-    # Black background for both the figure and the plotting area.
-    ax.figure.set_facecolor("black")
-    ax.set_facecolor("black")
-
-    # White bar outlines by default (still overridable via hist_kwargs).
     hist_kwargs.setdefault("edgecolor", "white")
     hist_kwargs.setdefault("linewidth", 1.0)
-
-    # Draw the histogram using seaborn's dedicated histogram function.
     sns.histplot(x=series, bins=bins, ax=ax, **hist_kwargs)
 
-    # Recolor each bar by its center's position relative to the median. Bin
-    # centers are read back from the drawn bars; scale by the largest distance
-    # so the blue/green endpoints are reached at the extremes of the data.
+    # Recolor each bar by its center's position relative to the median.
     bars = [p for p in ax.patches if p.get_width() > 0]
     centers = [p.get_x() + p.get_width() / 2 for p in bars]
-    max_dist = max((abs(c - median) for c in centers), default=0.0)
+    for patch, weight in zip(bars, median_weights(centers, median)):
+        patch.set_facecolor(blend(weight))
 
-    for center, patch in zip(centers, bars):
-        if max_dist == 0:
-            weight = 0.5  # all bars equidistant from the median -> neutral teal
-        else:
-            # t in [-1, 1]: -1 far below median, +1 far above.
-            t = (center - median) / max_dist
-            weight = (t + 1) / 2  # map to [0, 1] for the blue->green blend
-        patch.set_facecolor(_blend(weight))
+    apply_dark_style(ax, title, xlabel="Value", ylabel="Frequency")
+    return ax
 
-    # Bold, professional title in white.
-    ax.set_title(
-        title, color="white", fontweight="bold", fontsize=14, fontfamily="sans-serif"
+
+def heatmap(data, title: str = "Heatmap", annot: bool = True, fmt: str = ".2f",
+            ax=None, **heatmap_kwargs):
+    """Plot a heatmap using a blue->green colormap centered on the median.
+
+    Drawn with :func:`seaborn.heatmap`. Cells below the median are blue and
+    cells above are green, transitioning through teal at the median (via
+    seaborn's ``center``). Ideal for correlation matrices or any 2D grid.
+    Styled with a black background, white text, a bold title, and white
+    gridlines, plus a colorbar that makes the encoding self-explanatory.
+
+    Parameters
+    ----------
+    data : 2D array-like or pandas.DataFrame
+        The matrix of values to plot (e.g. ``df.corr()``).
+    title : str, default "Heatmap"
+        Bold title rendered at the top of the plot.
+    annot : bool, default True
+        Whether to write each cell's value on the heatmap.
+    fmt : str, default ".2f"
+        Format string for the cell annotations.
+    ax : matplotlib.axes.Axes, optional
+        Axes to draw on. If omitted, a new figure and axes are created.
+    **heatmap_kwargs
+        Additional keyword arguments forwarded to ``seaborn.heatmap``.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes containing the styled heatmap.
+    """
+    df = pd.DataFrame(data)
+    flat = pd.Series(df.to_numpy().ravel()).dropna()
+    if flat.empty:
+        raise ValueError("`data` contains no non-null values to plot.")
+
+    median = flat.median()
+    use_preferred_fonts()
+
+    if ax is None:
+        _, ax = plt.subplots()
+
+    # White gridlines separate the cells against the dark theme.
+    heatmap_kwargs.setdefault("linewidths", 0.5)
+    heatmap_kwargs.setdefault("linecolor", "white")
+    annot_kws = heatmap_kwargs.pop("annot_kws", {"color": "white"})
+
+    # `center=median` makes the diverging colormap put teal at the median,
+    # blue below and green above.
+    sns.heatmap(
+        df, cmap=bluegreen_cmap(), center=median, annot=annot, fmt=fmt,
+        ax=ax, annot_kws=annot_kws, **heatmap_kwargs,
     )
 
-    # White axis labels in the same font family.
-    ax.set_xlabel("Value", color="white", fontfamily="sans-serif")
-    ax.set_ylabel("Frequency", color="white", fontfamily="sans-serif")
+    apply_dark_style(ax, title)
 
-    # White tick labels and axis spines for contrast on black.
-    ax.tick_params(colors="white")
-    for label in ax.get_xticklabels() + ax.get_yticklabels():
-        label.set_fontfamily("sans-serif")
-    for spine in ax.spines.values():
-        spine.set_color("white")
+    cbar = ax.collections[-1].colorbar
+    if cbar is not None:
+        style_colorbar_white(cbar)
+    return ax
 
+
+def scatterplot(x=None, y=None, data=None, color_by: str = "y",
+                title: str = "Scatter Plot", ax=None, colorbar: bool = True,
+                **scatter_kwargs):
+    """Plot a scatter with points colored by their position relative to a median.
+
+    Drawn with :func:`seaborn.scatterplot`. Each point is colored by one
+    variable (``color_by``) relative to that variable's median: points below
+    the median are blue and points above are green, more saturated the further
+    away. Styled with a black background, white text, a bold title, and white
+    point outlines, plus a colorbar explaining the encoding.
+
+    Parameters
+    ----------
+    x, y : array-like, or str when ``data`` is given
+        The point coordinates. If ``data`` is a DataFrame, ``x`` and ``y`` may
+        be column names instead.
+    data : pandas.DataFrame, optional
+        Source frame when ``x`` and ``y`` are column names.
+    color_by : {"y", "x"}, default "y"
+        Which coordinate determines each point's color relative to its median.
+    title : str, default "Scatter Plot"
+        Bold title rendered at the top of the plot.
+    ax : matplotlib.axes.Axes, optional
+        Axes to draw on. If omitted, a new figure and axes are created.
+    colorbar : bool, default True
+        Whether to add a colorbar explaining the blue->green encoding.
+    **scatter_kwargs
+        Additional keyword arguments forwarded to ``seaborn.scatterplot``.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes containing the styled scatter plot.
+    """
+    if color_by not in ("x", "y"):
+        raise ValueError("`color_by` must be 'x' or 'y'.")
+
+    # Resolve inputs into a two-column frame, whether passed as arrays or as
+    # column names against a DataFrame.
+    if data is not None and isinstance(x, str) and isinstance(y, str):
+        source = pd.DataFrame(data)
+        frame = pd.DataFrame({"x": source[x], "y": source[y]})
+        xlabel, ylabel = x, y
+    else:
+        frame = pd.DataFrame({"x": pd.Series(x), "y": pd.Series(y)})
+        xlabel, ylabel = "x", "y"
+
+    frame = frame.dropna()
+    if frame.empty:
+        raise ValueError("No non-null (x, y) pairs to plot.")
+
+    color_values = frame[color_by]
+    median = color_values.median()
+    use_preferred_fonts()
+
+    if ax is None:
+        _, ax = plt.subplots()
+
+    scatter_kwargs.setdefault("edgecolor", "white")
+    scatter_kwargs.setdefault("linewidth", 0.6)
+    scatter_kwargs.setdefault("s", 60)
+    sns.scatterplot(x=frame["x"], y=frame["y"], ax=ax, **scatter_kwargs)
+
+    # Recolor the drawn points by their color_by value vs. the median.
+    weights = median_weights(color_values.tolist(), median)
+    ax.collections[-1].set_facecolors([blend(w) for w in weights])
+
+    apply_dark_style(ax, title, xlabel=xlabel, ylabel=ylabel)
+
+    if colorbar:
+        label = f"{ylabel if color_by == 'y' else xlabel} (relative to median)"
+        add_bluegreen_colorbar(ax, color_values.tolist(), median, label=label)
     return ax

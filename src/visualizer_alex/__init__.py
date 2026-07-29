@@ -1,5 +1,5 @@
 """visualizer_alex: helpers for visually appealing plots."""
 
-from .visualizer import histogram
+from .visualizer import heatmap, histogram, scatterplot
 
-__all__ = ["histogram"]
+__all__ = ["histogram", "heatmap", "scatterplot"]
