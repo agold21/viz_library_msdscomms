@@ -91,3 +91,58 @@ coordinate relative to that coordinate's median.
 
 All three accept extra keyword arguments that are forwarded to the underlying
 seaborn function.
+
+## Development
+
+Install the package along with the development tools (`build`, `twine`,
+`pytest`):
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Publishing to PyPI
+
+The project builds a standard wheel and source distribution. To publish a new
+release:
+
+1. **Bump the version** in `pyproject.toml` (`[project].version`). PyPI rejects
+   re-uploads of an existing version, so every release needs a new number.
+
+2. **Build fresh artifacts** (clear out any stale ones first):
+
+   ```bash
+   rm -rf dist/
+   python -m build
+   ```
+
+   This creates `dist/*.whl` and `dist/*.tar.gz`.
+
+3. **Validate the artifacts** with PyPI's checker:
+
+   ```bash
+   twine check dist/*
+   ```
+
+4. **(Recommended) Dry run on TestPyPI** before the real thing:
+
+   ```bash
+   twine upload --repository testpypi dist/*
+   ```
+
+   Then confirm it installs (pulling dependencies from real PyPI):
+
+   ```bash
+   pip install --index-url https://test.pypi.org/simple/ \
+       --extra-index-url https://pypi.org/simple/ viz-library-msdscomms
+   ```
+
+5. **Upload to PyPI**:
+
+   ```bash
+   twine upload dist/*
+   ```
+
+Authentication uses an API token: when prompted, enter `__token__` as the
+username and your PyPI token (starting with `pypi-`) as the password. You can
+store it in `~/.pypirc` to avoid re-entering it.
