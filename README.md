@@ -56,6 +56,17 @@ ax = histogram(data, title="My Plot")
 ax.figure.savefig("plot.png", facecolor=ax.figure.get_facecolor())
 ```
 
+## Examples
+
+A complete, runnable example on the Palmer Penguins dataset lives in
+[`examples/penguins_gallery.py`](examples/penguins_gallery.py):
+
+```bash
+python examples/penguins_gallery.py
+```
+
+It loads real ecological data and displays all three plots.
+
 ## Functions
 
 ### `histogram(data, bins=10, title="Histogram", ax=None, **hist_kwargs)`
