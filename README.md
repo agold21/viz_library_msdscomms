@@ -15,6 +15,15 @@ Built on [seaborn](https://seaborn.pydata.org/) and
 > **Note on names:** you install the package as `viz-library-msdscomms` but
 > import it as `visualizer_alex`.
 
+## Gallery
+
+The plots below were produced on the [Palmer Penguins](https://allisonhorst.github.io/palmerpenguins/)
+dataset by [`examples/penguins_gallery.py`](examples/penguins_gallery.py).
+
+| Histogram | Heatmap | Scatter |
+|:---:|:---:|:---:|
+| ![Histogram of penguin body mass](docs/histogram.png) | ![Correlation heatmap](docs/heatmap.png) | ![Flipper length vs body mass](docs/scatter.png) |
+
 ## Installation
 
 From a local clone (editable/development install):
@@ -79,6 +88,8 @@ center relative to the median of the data.
 - `title` — bold title text
 - `ax` — draw onto an existing `Axes` (a new figure is created if omitted)
 
+![Histogram example](docs/histogram.png)
+
 ### `heatmap(data, title="Heatmap", annot=True, fmt=".2f", ax=None, **heatmap_kwargs)`
 
 Heatmap (via `seaborn.heatmap`) using the blue→green blend as a continuous
@@ -90,6 +101,8 @@ matrices.
 - `annot` — write each cell's value on the map
 - `fmt` — format string for the annotations
 
+![Heatmap example](docs/heatmap.png)
+
 ### `scatterplot(x=None, y=None, data=None, color_by="y", title="Scatter Plot", ax=None, colorbar=True, **scatter_kwargs)`
 
 Scatter plot (via `seaborn.scatterplot`) with each point colored by one
@@ -99,6 +112,8 @@ coordinate relative to that coordinate's median.
 - `data` — optional `DataFrame` source for `x`/`y` column names
 - `color_by` — `"y"` (default) or `"x"`: which coordinate drives the color
 - `colorbar` — add a colorbar explaining the blue→green encoding
+
+![Scatter example](docs/scatter.png)
 
 All three accept extra keyword arguments that are forwarded to the underlying
 seaborn function.
